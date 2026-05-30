@@ -193,6 +193,12 @@ class StockApp(ctk.CTk):
                 return
 
             # Basic Data
+            industry_en = info.get('industryDisp') or info.get('industry') or info.get('sectorDisp') or info.get('sector', '未知產業')
+            try:
+                industry_zh = GoogleTranslator(source='auto', target='zh-TW').translate(industry_en) if industry_en != '未知產業' else industry_en
+            except:
+                industry_zh = industry_en
+
             data = {
                 "symbol": symbol,
                 "name": info.get('shortName', info.get('longName', symbol)),
@@ -204,7 +210,34 @@ class StockApp(ctk.CTk):
                 "revenue": info.get('totalRevenue'),
                 "market_cap": info.get('marketCap'),
                 "high_low": f"{info.get('fiftyTwoWeekHigh', 'N/A')} / {info.get('fiftyTwoWeekLow', 'N/A')}",
+                "industry": industry_zh,
             }
+            
+            # Peers Data
+            industry_key = info.get('industryKey')
+            peer_data = []
+            if industry_key:
+                try:
+                    region = "TW" if is_tw else "US"
+                    ind = yf.Industry(industry_key, region=region)
+                    peer_symbols = ind.top_companies.index.tolist() if hasattr(ind, 'top_companies') else []
+                    peer_symbols = [p for p in peer_symbols if p != symbol][:5]
+                    
+                    if peer_symbols:
+                        translator = GoogleTranslator(source='auto', target='zh-TW')
+                        for p in peer_symbols:
+                            p_info = yf.Ticker(p).info
+                            p_price = p_info.get('currentPrice') or p_info.get('previousClose') or p_info.get('regularMarketPrice', 'N/A')
+                            p_name = p_info.get('shortName', p_info.get('longName', p))
+                            try:
+                                p_name = translator.translate(p_name)
+                            except:
+                                pass
+                            peer_data.append({'symbol': p, 'name': p_name, 'price': p_price})
+                except Exception as e:
+                    print(f"Failed to fetch peers: {e}")
+            
+            data["peers"] = peer_data
             
             # Historical Data for K-line & Technical Analysis
             df = ticker.history(period="6mo")
@@ -292,6 +325,10 @@ class StockApp(ctk.CTk):
         name_lbl = ctk.CTkLabel(info_frame, text=f"🏷️ {data['name']} ({data['symbol']})", font=ctk.CTkFont(family="Microsoft JhengHei", size=20, weight="bold"))
         name_lbl.pack(pady=(15, 5), padx=15, anchor="w")
         
+        if data.get('industry'):
+            ind_lbl = ctk.CTkLabel(info_frame, text=f"🏭 產業類別：{data['industry']}", font=ctk.CTkFont(family="Microsoft JhengHei", size=14), text_color="#AAB7B8")
+            ind_lbl.pack(pady=(0, 5), padx=15, anchor="w")
+        
         price_lbl = ctk.CTkLabel(info_frame, text=f"💵 最新收盤價：{data['price']} {data['currency']}", font=ctk.CTkFont(family="Microsoft JhengHei", size=18, weight="bold"), text_color="#F1C40F")
         price_lbl.pack(pady=(0, 10), padx=15, anchor="w")
 
@@ -313,6 +350,25 @@ class StockApp(ctk.CTk):
         for i, (label, val) in enumerate(metrics):
             lbl = ctk.CTkLabel(metrics_frame, text=f"{label}： {val}", font=ctk.CTkFont(family="Microsoft JhengHei", size=14))
             lbl.grid(row=i//2, column=i%2, sticky="w", padx=(0, 30), pady=3)
+
+        # 1.5 Peers Section
+        if data.get('peers'):
+            peers_frame = ctk.CTkFrame(self.scroll_frame, corner_radius=10, fg_color="#1E1E1E")
+            peers_frame.pack(fill="x", pady=5, padx=5)
+            
+            p_title = ctk.CTkLabel(peers_frame, text="🤝 同產業其他公司", font=ctk.CTkFont(family="Microsoft JhengHei", size=18, weight="bold"), text_color="#E67E22")
+            p_title.pack(pady=(10, 5), padx=15, anchor="w")
+            
+            peers_btn_frame = ctk.CTkFrame(peers_frame, fg_color="transparent")
+            peers_btn_frame.pack(fill="x", padx=15, pady=(0, 10))
+            
+            for peer in data['peers']:
+                p_text = f"{peer['name']}\n{peer['price']} {data['currency']}"
+                btn = ctk.CTkButton(peers_btn_frame, text=p_text, 
+                                    font=ctk.CTkFont(family="Microsoft JhengHei", size=13),
+                                    fg_color="#2C3E50", hover_color="#34495E",
+                                    command=lambda s=peer['symbol']: self.quick_search(s))
+                btn.pack(side="left", padx=(0, 10), fill="x", expand=True)
 
         # 2. Analyst Recommendations Section
         if recs:

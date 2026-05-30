@@ -154,7 +154,14 @@ def main():
             table.add_column("指標", style="bold cyan")
             table.add_column("數值", style="bold white")
             
+            industry_en = info.get('industryDisp') or info.get('industry') or info.get('sectorDisp') or info.get('sector', '未知產業')
+            try:
+                industry_zh = GoogleTranslator(source='auto', target='zh-TW').translate(industry_en) if industry_en != '未知產業' else industry_en
+            except:
+                industry_zh = industry_en
+
             table.add_row("股票名稱", f"{stock_name} ({symbol})")
+            table.add_row("產業類別", industry_zh)
             table.add_row("最新收盤價", f"{current_price} {currency}")
             table.add_row("近一年EPS", f"{eps}" if eps else "N/A")
             table.add_row("本益比 (P/E)", f"{pe_ratio:.2f}" if pe_ratio else "N/A")
