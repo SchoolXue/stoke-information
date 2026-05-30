@@ -381,9 +381,9 @@ class StockApp(ctk.CTk):
                 
                 t_color = "white"
                 if "▲" in peer['change_3mo']:
-                    t_color = "#E74C3C" if data['currency'] == 'TWD' else "#2ECC71"
+                    t_color = "#E74C3C"
                 elif "▼" in peer['change_3mo']:
-                    t_color = "#2ECC71" if data['currency'] == 'TWD' else "#E74C3C"
+                    t_color = "#2ECC71"
 
                 btn = ctk.CTkButton(peers_btn_frame, text=p_text, 
                                     font=ctk.CTkFont(family="Microsoft JhengHei", size=13),
