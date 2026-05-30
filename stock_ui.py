@@ -226,14 +226,28 @@ class StockApp(ctk.CTk):
                     if peer_symbols:
                         translator = GoogleTranslator(source='auto', target='zh-TW')
                         for p in peer_symbols:
-                            p_info = yf.Ticker(p).info
+                            p_ticker = yf.Ticker(p)
+                            p_info = p_ticker.info
                             p_price = p_info.get('currentPrice') or p_info.get('previousClose') or p_info.get('regularMarketPrice', 'N/A')
                             p_name = p_info.get('shortName', p_info.get('longName', p))
                             try:
                                 p_name = translator.translate(p_name)
                             except:
                                 pass
-                            peer_data.append({'symbol': p, 'name': p_name, 'price': p_price})
+                                
+                            change_str = "N/A"
+                            try:
+                                hist = p_ticker.history(period="3mo")
+                                if not hist.empty and len(hist) > 1:
+                                    old_price = hist['Close'].iloc[0]
+                                    curr_close = hist['Close'].iloc[-1]
+                                    if old_price > 0:
+                                        change_pct = ((curr_close - old_price) / old_price) * 100
+                                        change_str = f"▲ +{change_pct:.1f}%" if change_pct >= 0 else f"▼ {change_pct:.1f}%"
+                            except:
+                                pass
+                                
+                            peer_data.append({'symbol': p, 'name': p_name, 'price': p_price, 'change_3mo': change_str})
                 except Exception as e:
                     print(f"Failed to fetch peers: {e}")
             
@@ -363,12 +377,20 @@ class StockApp(ctk.CTk):
             peers_btn_frame.pack(fill="x", padx=15, pady=(0, 10))
             
             for peer in data['peers']:
-                p_text = f"{peer['name']}\n{peer['price']} {data['currency']}"
+                p_text = f"{peer['name']}\n{peer['price']} {data['currency']}\n3個月: {peer['change_3mo']}"
+                
+                t_color = "white"
+                if "▲" in peer['change_3mo']:
+                    t_color = "#E74C3C" if data['currency'] == 'TWD' else "#2ECC71"
+                elif "▼" in peer['change_3mo']:
+                    t_color = "#2ECC71" if data['currency'] == 'TWD' else "#E74C3C"
+
                 btn = ctk.CTkButton(peers_btn_frame, text=p_text, 
                                     font=ctk.CTkFont(family="Microsoft JhengHei", size=13),
-                                    fg_color="#2C3E50", hover_color="#34495E",
+                                    fg_color="#2B2B2B", hover_color="#3A3A3A",
+                                    text_color=t_color, border_width=1, border_color="#444444",
                                     command=lambda s=peer['symbol']: self.quick_search(s))
-                btn.pack(side="left", padx=(0, 10), fill="x", expand=True)
+                btn.pack(side="left", padx=(0, 8), fill="x", expand=True)
 
         # 2. Analyst Recommendations Section
         if recs:
